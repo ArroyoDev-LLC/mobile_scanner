@@ -160,6 +160,8 @@ class MobileScannerHandler(
             "resetScale" -> resetScale(result)
             "updateScanWindow" -> updateScanWindow(call, result)
             "setFocus" -> setFocus(call, result)
+            "setMeteringPoint" -> setMeteringPoint(call, result)
+            "setExposureOffset" -> setExposureOffset(call, result)
             else -> result.notImplemented()
         }
     }
@@ -425,6 +427,66 @@ class MobileScannerHandler(
             e.printStackTrace()
         }
         return maxZoom
+    }
+
+    private fun setMeteringPoint(call: MethodCall, result: MethodChannel.Result) {
+        val dx = call.argument<Double>("dx")?.toFloat()
+        val dy = call.argument<Double>("dy")?.toFloat()
+
+        if (dx == null || dy == null || dx !in 0f..1f || dy !in 0f..1f) {
+            result.error(
+                MobileScannerErrorCodes.INVALID_FOCUS_POINT,
+                MobileScannerErrorCodes.INVALID_FOCUS_POINT_MESSAGE,
+                null
+            )
+            return
+        }
+
+        try {
+            mobileScanner?.setMeteringPoint(dx, dy)
+            result.success(null)
+        } catch (e: ZoomWhenStopped) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                "Cannot set the metering point when camera is stopped.",
+                null
+            )
+        } catch (e: Exception) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                MobileScannerErrorCodes.GENERIC_ERROR_MESSAGE,
+                e.localizedMessage
+            )
+        }
+    }
+
+    private fun setExposureOffset(call: MethodCall, result: MethodChannel.Result) {
+        val offset = call.arguments as? Double
+
+        if (offset == null) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                "The exposure offset was not a number.",
+                null
+            )
+            return
+        }
+
+        try {
+            result.success(mobileScanner?.setExposureOffset(offset) ?: 0.0)
+        } catch (e: ZoomWhenStopped) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                "Cannot set the exposure offset when camera is stopped.",
+                null
+            )
+        } catch (e: Exception) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                MobileScannerErrorCodes.GENERIC_ERROR_MESSAGE,
+                e.localizedMessage
+            )
+        }
     }
 
     private fun setFocus(call: MethodCall, result: MethodChannel.Result) {

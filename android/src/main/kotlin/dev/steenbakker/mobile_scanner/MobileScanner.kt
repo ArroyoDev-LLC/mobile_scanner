@@ -18,6 +18,7 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
 import androidx.camera.core.CameraXConfig
+import androidx.camera.core.DisplayOrientedMeteringPointFactory
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ExperimentalLensFacing
 import androidx.camera.core.FocusMeteringAction
@@ -830,6 +831,50 @@ class MobileScanner(
             .build()
 
         cam.cameraControl.startFocusAndMetering(action)
+    }
+
+    /**
+     * Focus and meter exposure on a point of the preview, given in display orientation.
+     */
+    fun setMeteringPoint(x: Float, y: Float) {
+        val cam = camera ?: throw ZoomWhenStopped()
+
+        if (x !in 0f..1f || y !in 0f..1f) {
+            throw IllegalArgumentException("Metering coordinates must be between 0.0 and 1.0")
+        }
+
+        @Suppress("DEPRECATION")
+        val display = activity.windowManager.defaultDisplay
+        val factory = DisplayOrientedMeteringPointFactory(display, cam.cameraInfo, 1f, 1f)
+        val point = factory.createPoint(x, y)
+
+        val action = FocusMeteringAction.Builder(
+            point,
+            FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+        ).disableAutoCancel().build()
+
+        cam.cameraControl.startFocusAndMetering(action)
+    }
+
+    /**
+     * Bias the automatic exposure by [offset] stops, clamped to what the camera supports.
+     * Returns the applied offset in stops.
+     */
+    fun setExposureOffset(offset: Double): Double {
+        val cam = camera ?: throw ZoomWhenStopped()
+        val exposureState = cam.cameraInfo.exposureState
+
+        if (!exposureState.isExposureCompensationSupported) return 0.0
+
+        val step = exposureState.exposureCompensationStep.toDouble()
+        if (step <= 0.0) return 0.0
+
+        val range = exposureState.exposureCompensationRange
+        val index = (offset / step).roundToInt().coerceIn(range.lower, range.upper)
+
+        cam.cameraControl.setExposureCompensationIndex(index)
+
+        return index * step
     }
 
     /**
