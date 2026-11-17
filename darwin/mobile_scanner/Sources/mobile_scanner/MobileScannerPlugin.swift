@@ -164,6 +164,10 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             setScale(call, result)
         case "setFocus":
             setFocus(call, result)
+        case "setMeteringPoint":
+            setMeteringPoint(call, result)
+        case "setExposureOffset":
+            setExposureOffset(call, result)
         case "resetScale":
             resetScale(call, result)
         case "pause":
@@ -769,6 +773,110 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
 
     }
     
+    /// Focus and meter exposure on a point of the preview, given in display orientation.
+    private func setMeteringPoint(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+        guard let args = call.arguments as? [String: Any],
+              let dx = args["dx"] as? CGFloat,
+              let dy = args["dy"] as? CGFloat,
+              (0...1).contains(dx), (0...1).contains(dy) else {
+            result(FlutterError(code: MobileScannerErrorCodes.INVALID_FOCUS_POINT,
+                                message: MobileScannerErrorCodes.INVALID_FOCUS_POINT_MESSAGE,
+                                details: nil))
+            return
+        }
+
+        guard let device = device else {
+            result(FlutterError(code: MobileScannerErrorCodes.GENERIC_ERROR,
+                                message: "Cannot set the metering point when camera is stopped.",
+                                details: nil))
+            return
+        }
+
+#if os(iOS)
+        let point = devicePointOfInterest(fromDisplayPoint: CGPoint(x: dx, y: dy),
+                                          mirrored: device.position == .front)
+        do {
+            try device.lockForConfiguration()
+            if device.isFocusPointOfInterestSupported {
+                device.focusPointOfInterest = point
+                device.focusMode = device.isFocusModeSupported(.continuousAutoFocus)
+                    ? .continuousAutoFocus : .autoFocus
+            }
+            if device.isExposurePointOfInterestSupported {
+                device.exposurePointOfInterest = point
+                device.exposureMode = device.isExposureModeSupported(.continuousAutoExposure)
+                    ? .continuousAutoExposure : .autoExpose
+            }
+            device.isSubjectAreaChangeMonitoringEnabled = false
+            device.unlockForConfiguration()
+        } catch {
+            result(FlutterError(code: MobileScannerErrorCodes.GENERIC_ERROR,
+                                message: error.localizedDescription,
+                                details: nil))
+            return
+        }
+#endif
+
+        result(nil)
+    }
+
+    /// Bias the automatic exposure by a number of stops, clamped to what the camera supports.
+    /// Replies with the applied offset.
+    private func setExposureOffset(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+        guard let offset = call.arguments as? Double else {
+            result(FlutterError(code: MobileScannerErrorCodes.GENERIC_ERROR,
+                                message: "The exposure offset was not a number.",
+                                details: nil))
+            return
+        }
+
+        guard let device = device else {
+            result(FlutterError(code: MobileScannerErrorCodes.GENERIC_ERROR,
+                                message: "Cannot set the exposure offset when camera is stopped.",
+                                details: nil))
+            return
+        }
+
+#if os(iOS)
+        let bias = min(max(Float(offset), device.minExposureTargetBias), device.maxExposureTargetBias)
+        do {
+            try device.lockForConfiguration()
+            device.setExposureTargetBias(bias, completionHandler: nil)
+            device.unlockForConfiguration()
+        } catch {
+            result(FlutterError(code: MobileScannerErrorCodes.GENERIC_ERROR,
+                                message: error.localizedDescription,
+                                details: nil))
+            return
+        }
+        result(Double(bias))
+#else
+        result(0.0)
+#endif
+    }
+
+#if os(iOS)
+    /// Convert a point in the displayed preview into the sensor space that
+    /// `focusPointOfInterest` and `exposurePointOfInterest` expect, which is
+    /// always landscape right and never mirrored.
+    private func devicePointOfInterest(fromDisplayPoint point: CGPoint, mirrored: Bool) -> CGPoint {
+        let x = mirrored ? 1 - point.x : point.x
+        let y = point.y
+        switch getVideoOrientation() {
+        case .portrait:
+            return CGPoint(x: y, y: 1 - x)
+        case .portraitUpsideDown:
+            return CGPoint(x: 1 - y, y: x)
+        case .landscapeLeft:
+            return CGPoint(x: 1 - x, y: 1 - y)
+        case .landscapeRight:
+            return CGPoint(x: x, y: y)
+        @unknown default:
+            return CGPoint(x: y, y: 1 - x)
+        }
+    }
+#endif
+
     private func setFocus(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
         guard let args = call.arguments as? [String: Any],
                   let dx = args["dx"] as? CGFloat,
