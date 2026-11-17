@@ -856,6 +856,31 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
     }
 
 #if os(iOS)
+    /// Undo `setMeteringPoint` and `setExposureOffset`, which live on the shared
+    /// `AVCaptureDevice` and would otherwise carry over to the next camera user.
+    private func resetMetering(_ device: AVCaptureDevice) {
+        let center = CGPoint(x: 0.5, y: 0.5)
+        do {
+            try device.lockForConfiguration()
+            if device.isFocusPointOfInterestSupported {
+                device.focusPointOfInterest = center
+            }
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
+            }
+            if device.isExposurePointOfInterestSupported {
+                device.exposurePointOfInterest = center
+            }
+            if device.isExposureModeSupported(.continuousAutoExposure) {
+                device.exposureMode = .continuousAutoExposure
+            }
+            device.setExposureTargetBias(0, completionHandler: nil)
+            device.unlockForConfiguration()
+        } catch {
+            // The device is going away; a stale metering point is harmless.
+        }
+    }
+
     /// Convert a point in the displayed preview into the sensor space that
     /// `focusPointOfInterest` and `exposurePointOfInterest` expect, which is
     /// always landscape right and never mirrored.
@@ -1098,6 +1123,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             device.removeObserver(self, forKeyPath: #keyPath(AVCaptureDevice.torchMode))
 #if os(iOS)
             device.removeObserver(self, forKeyPath: #keyPath(AVCaptureDevice.videoZoomFactor))
+            resetMetering(device)
 #endif
             self.device = nil
         }
