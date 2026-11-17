@@ -450,6 +450,45 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     await MobileScannerPlatform.instance.setFocusPoint(clampedPosition);
   }
 
+  /// Focus and meter exposure on a point of the preview, as it is displayed.
+  ///
+  /// The [position] must be a point between `0,0` and `1,1`, both inclusive,
+  /// relative to the whole camera preview in the current display orientation.
+  /// The camera keeps metering that point until it is stopped or another
+  /// point is set.
+  ///
+  /// Does nothing if the camera is not running.
+  Future<void> setMeteringPoint(Offset position) async {
+    _throwIfNotInitialized();
+
+    if (!value.isRunning) {
+      return;
+    }
+
+    final clampedPosition = Offset(
+      position.dx.clamp(0, 1),
+      position.dy.clamp(0, 1),
+    );
+
+    await MobileScannerPlatform.instance.setMeteringPoint(clampedPosition);
+  }
+
+  /// Bias the automatic exposure by [offset] stops (EV).
+  ///
+  /// Negative values darken the image, positive values brighten it.
+  /// The offset is clamped to what the camera supports.
+  ///
+  /// Returns the offset that was applied, or `0` if the camera is not running.
+  Future<double> setExposureOffset(double offset) async {
+    _throwIfNotInitialized();
+
+    if (!value.isRunning) {
+      return 0;
+    }
+
+    return await MobileScannerPlatform.instance.setExposureOffset(offset);
+  }
+
   /// Start scanning for barcodes.
   ///
   /// The [cameraDirection] can be used to specify the camera direction.

@@ -67,6 +67,12 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   @visibleForTesting
   static const String kSetFocusMethodName = 'setFocus';
 
+  /// The name of the method that sets the focus and exposure metering point.
+  static const String kSetMeteringPointMethodName = 'setMeteringPoint';
+
+  /// The name of the method that sets the exposure offset.
+  static const String kSetExposureOffsetMethodName = 'setExposureOffset';
+
   /// The name of the method that starts the camera.
   @visibleForTesting
   static const String kStartCameraMethodName = 'start';
@@ -358,6 +364,33 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     final params = <String, Object?>{'dx': position.dx, 'dy': position.dy};
 
     await methodChannel.invokeMethod<void>(kSetFocusMethodName, params);
+  }
+
+  @override
+  Future<void> setMeteringPoint(Offset position) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS &&
+        defaultTargetPlatform != TargetPlatform.android) {
+      throw UnimplementedError('setMeteringPoint() has not been implemented.');
+    }
+
+    final params = <String, Object?>{'dx': position.dx, 'dy': position.dy};
+
+    await methodChannel.invokeMethod<void>(kSetMeteringPointMethodName, params);
+  }
+
+  @override
+  Future<double> setExposureOffset(double offset) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS &&
+        defaultTargetPlatform != TargetPlatform.android) {
+      throw UnimplementedError('setExposureOffset() has not been implemented.');
+    }
+
+    final applied = await methodChannel.invokeMethod<double>(
+      kSetExposureOffsetMethodName,
+      offset,
+    );
+
+    return applied ?? 0;
   }
 
   @override

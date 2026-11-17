@@ -104,6 +104,24 @@ abstract class MobileScannerPlatform extends PlatformInterface {
     throw UnimplementedError('setFocusPoint() has not been implemented.');
   }
 
+  /// Focus and meter exposure on a point of the preview, as it is displayed.
+  ///
+  /// The provided point should be in the range `(0,0) - (1,1)`, both inclusive,
+  /// where `(0,0)` is the top left and `(1,1)` is the bottom right of the
+  /// preview in the current display orientation. The camera keeps metering
+  /// that point until it is stopped or another point is set.
+  Future<void> setMeteringPoint(Offset position) {
+    throw UnimplementedError('setMeteringPoint() has not been implemented.');
+  }
+
+  /// Bias the automatic exposure by [offset] stops (EV).
+  ///
+  /// The offset is clamped to what the camera supports.
+  /// Returns the offset that was applied.
+  Future<double> setExposureOffset(double offset) {
+    throw UnimplementedError('setExposureOffset() has not been implemented.');
+  }
+
   /// Start the barcode scanner and prepare a scanner view.
   ///
   /// Upon calling this method, the necessary camera permission will be
